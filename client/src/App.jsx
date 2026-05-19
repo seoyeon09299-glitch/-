@@ -620,27 +620,38 @@ function CategoryModal({ currentCategory, onSelect, onClose, onAddCategory, onDe
   )
 }
 
-// ─── 태그 이름 변경 모달 ─────────────────────────────────────────────────────
+// ─── 태그 편집 모달 (이름 + 색상) ───────────────────────────────────────────
 function RenameTagModal({ tag, onClose, onRename }) {
-  const [name, setName] = useState(tag.label)
   const s = BADGE_STYLES[tag.label] || { color:'#888', bg:'#f0f0f0' }
+  const [name,          setName]          = useState(tag.label)
+  const [selectedColor, setSelectedColor] = useState(s.color)
   return (
     <div className="modal-overlay" style={{ zIndex:600 }} onClick={onClose}>
       <div className="modal-card add-cat-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">태그 이름 변경</div>
+        <div className="modal-title">태그 편집</div>
         <div className="add-cat-field">
           <span className="add-cat-label">이름</span>
           <input className="add-cat-input" value={name}
             onChange={e => setName(e.target.value)} autoFocus
-            style={{ borderColor: s.color }}
-            onKeyDown={e => { if (e.key==='Enter' && name.trim()) onRename(name.trim()) }} />
+            style={{ borderColor: selectedColor }}
+            onKeyDown={e => { if (e.key==='Enter' && name.trim()) onRename(name.trim(), selectedColor) }} />
+        </div>
+        <div className="add-cat-colors">
+          <span className="add-cat-label">색상</span>
+          <div className="add-cat-color-row">
+            {CAT_COLORS.map(c => (
+              <button key={c} className="add-cat-color-dot tap"
+                style={{ backgroundColor:c, outline:selectedColor===c?`2.5px solid ${c}`:'2.5px solid transparent', outlineOffset:'2px' }}
+                onClick={() => setSelectedColor(c)} />
+            ))}
+          </div>
         </div>
         <div className="add-cat-actions">
           <button className="add-cat-cancel tap" onClick={onClose}>취소</button>
           <button className="add-cat-create tap"
-            style={{ background: s.color }}
-            disabled={!name.trim() || name.trim()===tag.label}
-            onClick={() => { if (name.trim()) onRename(name.trim()) }}>
+            style={{ background: selectedColor }}
+            disabled={!name.trim()}
+            onClick={() => { if (name.trim()) onRename(name.trim(), selectedColor) }}>
             변경
           </button>
         </div>
@@ -1168,9 +1179,11 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
           <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
         </div>
         <div className="doc-page-dots">
+          <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
           {MOCK_QUESTIONS.map((_,i) => (
             <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
           ))}
+          <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
         </div>
       </div>
 
@@ -1315,14 +1328,16 @@ export default function App() {
     if (libFilter > 0) setLibFilter(0)
   }
 
-  const handleRenameTag = (oldLabel, newLabel) => {
-    if (!newLabel || newLabel === oldLabel) { setRenamingTag(null); return }
-    const style = BADGE_STYLES[oldLabel]
-    CATS = CATS.map(c => c === oldLabel ? newLabel : c)
-    BADGE_STYLES[newLabel] = style
-    delete BADGE_STYLES[oldLabel]
-    setCatsData(prev => prev.map(c => c.label === oldLabel ? { ...c, label: newLabel } : c))
-    setLibraryItems(prev => prev.map(i => i.category === oldLabel ? { ...i, category: newLabel } : i))
+  const handleRenameTag = (oldLabel, newLabel, newColor) => {
+    if (!newLabel.trim()) { setRenamingTag(null); return }
+    const trimmed = newLabel.trim()
+    const oldStyle = BADGE_STYLES[oldLabel] || { color:'#888', bg:'#f0f0f0' }
+    const newStyle = newColor ? { color: newColor, bg: lightenColor(newColor) } : oldStyle
+    CATS = CATS.map(c => c === oldLabel ? trimmed : c)
+    BADGE_STYLES[trimmed] = newStyle
+    if (trimmed !== oldLabel) delete BADGE_STYLES[oldLabel]
+    setCatsData(prev => prev.map(c => c.label === oldLabel ? { ...c, label: trimmed, color: newStyle.color, bg: newStyle.bg } : c))
+    setLibraryItems(prev => prev.map(i => i.category === oldLabel ? { ...i, category: trimmed } : i))
     setRenamingTag(null)
   }
 
@@ -1546,7 +1561,7 @@ export default function App() {
       )}
       {renamingTag && (
         <RenameTagModal tag={renamingTag} onClose={() => setRenamingTag(null)}
-          onRename={newLabel => handleRenameTag(renamingTag.label, newLabel)} />
+          onRename={(newLabel, newColor) => handleRenameTag(renamingTag.label, newLabel, newColor)} />
       )}
     </div>
   )

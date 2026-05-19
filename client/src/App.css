@@ -861,6 +861,16 @@ button {
   border-radius: 3px;
 }
 
+.doc-arrow {
+  font-size: 18px;
+  color: var(--text-gray);
+  padding: 0 6px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.doc-arrow:hover  { color: var(--text-dark); }
+.doc-arrow:disabled { opacity: 0.25; pointer-events: none; }
+
 .doc-divider {
   height: 1px;
   background: var(--border);
