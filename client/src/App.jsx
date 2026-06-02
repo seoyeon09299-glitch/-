@@ -992,12 +992,16 @@ function LibraryBottomSheet({ libraryItems, insertedIds, onInsert, onPreview, on
 }
 
 // ─── 서류 상세 편집 화면 ──────────────────────────────────────────────────────
-function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAnswersChange, appAnswers }) {
+function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAnswersChange, appAnswers, questions, onQuestionsChange }) {
   const [currentQ,       setCurrentQ]       = useState(0)
   const [showLibSheet,   setShowLibSheet]   = useState(false)
   const [insertedIds,    setInsertedIds]    = useState(new Set())
   const [proposalBlocks, setProposalBlocks] = useState([])
   const [previewItem,    setPreviewItem]    = useState(null)
+
+  // 질문 텍스트 편집
+  const [editingQIdx,  setEditingQIdx]  = useState(null)
+  const [editingQText, setEditingQText] = useState('')
 
   // 툴 시트 상태
   const [activeSheet,       setActiveSheet]       = useState(null)
@@ -1021,10 +1025,16 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
   const [toast,         setToast]         = useState(null)
   const textareaRef = useRef(null)
 
-  const question  = MOCK_QUESTIONS[currentQ]
+  const question  = questions[currentQ] || questions[0]
   const ans       = answers[currentQ] || ''
   const charCount = ans.length
-  const progress  = Math.min(charCount / question.maxChars, 1)
+  const progress  = Math.min(charCount / (question?.maxChars || 1000), 1)
+
+  const saveQuestionText = () => {
+    const newQs = questions.map((q, i) => i === editingQIdx ? { ...q, text: editingQText } : q)
+    onQuestionsChange(newQs)
+    setEditingQIdx(null)
+  }
 
   // 문항 전환 시 히스토리 초기화
   useEffect(() => {
@@ -1173,7 +1183,23 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
       </div>
 
       <div className="doc-question-area">
-        <div className="doc-question-text">{question.text}</div>
+        {editingQIdx === currentQ ? (
+          <textarea
+            className="doc-question-edit-ta"
+            value={editingQText}
+            onChange={e => setEditingQText(e.target.value)}
+            onBlur={saveQuestionText}
+            onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); saveQuestionText() } }}
+            autoFocus
+          />
+        ) : (
+          <div className="doc-question-text-row">
+            <div className="doc-question-text">{question.text}</div>
+            <button className="doc-question-edit-btn tap" onClick={() => { setEditingQIdx(currentQ); setEditingQText(question.text) }}>
+              <PencilIcon />
+            </button>
+          </div>
+        )}
         <div className="doc-progress-row">
           <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
           <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
@@ -1182,10 +1208,10 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
 
       <div className="doc-nav-bar">
         <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
-        {MOCK_QUESTIONS.map((_,i) => (
+        {questions.map((_,i) => (
           <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
         ))}
-        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(questions.length-1, q+1))} disabled={currentQ===questions.length-1}>›</button>
       </div>
 
       {proposalBlocks.length > 0 && (
@@ -1278,9 +1304,10 @@ export default function App() {
     return DEFAULT_CATS
   })
 
-  const [libraryItems, setLibraryItems] = useState(() => loadState('ji_library',  INIT_LIBRARY))
-  const [appAnswers,   setAppAnswers]   = useState(() => loadState('ji_answers',  {}))
-  const [cardStatuses, setCardStatuses] = useState(() => loadState('ji_statuses', {}))
+  const [libraryItems, setLibraryItems] = useState(() => loadState('ji_library',   INIT_LIBRARY))
+  const [appAnswers,   setAppAnswers]   = useState(() => loadState('ji_answers',   {}))
+  const [cardStatuses, setCardStatuses] = useState(() => loadState('ji_statuses',  {}))
+  const [appQuestions, setAppQuestions] = useState(() => loadState('ji_questions', {}))
 
   const [view,        setView]        = useState('main')
   const [mainTab,     setMainTab]     = useState('docs')
@@ -1323,6 +1350,7 @@ export default function App() {
   useEffect(() => { saveState('ji_library',   libraryItems) }, [libraryItems])
   useEffect(() => { saveState('ji_answers',   appAnswers)   }, [appAnswers])
   useEffect(() => { saveState('ji_statuses',  cardStatuses) }, [cardStatuses])
+  useEffect(() => { saveState('ji_questions', appQuestions) }, [appQuestions])
 
   useEffect(() => {
     const close = () => { setSortOpen(false); setCardDropdown(null); setLibMenu(null) }
@@ -1398,27 +1426,11 @@ export default function App() {
     return items
   }, [libFilter, libraryItems, libSearch, catsData])
 
-  // ── 라우팅 ──
-  if (view==='docDetail' && selectedApp) {
-    return (
-      <DocDetailView key={selectedApp.id} app={selectedApp}
-        onBack={() => goToMain('docs')} onGoToLibrary={() => goToMain('library')}
-        libraryItems={libraryItems} appAnswers={appAnswers}
-        answers={appAnswers[selectedApp.id]||['','','','']}
-        onAnswersChange={handleAnswersChange} />
-    )
+  const handleQuestionsChange = (appId, newQs) => {
+    setAppQuestions(prev => ({ ...prev, [appId]: newQs }))
   }
 
-  if (view==='edit') {
-    return (
-      <EditView item={editingItem}
-        onClose={() => goToMain('library')} onGoToDocs={() => goToMain('docs')}
-        onSave={handleSave} onAddCategory={handleAddCategory} onDeleteCategory={handleDeleteCategory}
-        libraryItems={libraryItems} appAnswers={appAnswers} />
-    )
-  }
-
-  // ── 메인 화면 ──
+  // ── 메인 화면 (항상 렌더링, overlay 위에 깔림) ──
   return (
     <div className="app">
       <MainTabHeader activeTab={mainTab} onChange={handleMainTabChange} />
@@ -1573,6 +1585,29 @@ export default function App() {
       {renamingTag && (
         <RenameTagModal tag={renamingTag} onClose={() => setRenamingTag(null)}
           onRename={(newLabel, newColor) => handleRenameTag(renamingTag.label, newLabel, newColor)} />
+      )}
+
+      {/* ── Overlay: 서류 상세 ── */}
+      {view === 'docDetail' && selectedApp && (
+        <div style={{ position:'absolute', top:0, left:0, right:0, bottom:0, zIndex:10, background:'#fff', display:'flex', flexDirection:'column' }}>
+          <DocDetailView key={selectedApp.id} app={selectedApp}
+            onBack={() => goToMain('docs')} onGoToLibrary={() => goToMain('library')}
+            libraryItems={libraryItems} appAnswers={appAnswers}
+            answers={appAnswers[selectedApp.id]||['','','','']}
+            onAnswersChange={handleAnswersChange}
+            questions={appQuestions[selectedApp.id] || MOCK_QUESTIONS}
+            onQuestionsChange={newQs => handleQuestionsChange(selectedApp.id, newQs)} />
+        </div>
+      )}
+
+      {/* ── Overlay: 라이브러리 편집 ── */}
+      {view === 'edit' && (
+        <div style={{ position:'absolute', top:0, left:0, right:0, bottom:0, zIndex:10, background:'#fff', display:'flex', flexDirection:'column' }}>
+          <EditView item={editingItem}
+            onClose={() => goToMain('library')} onGoToDocs={() => goToMain('docs')}
+            onSave={handleSave} onAddCategory={handleAddCategory} onDeleteCategory={handleDeleteCategory}
+            libraryItems={libraryItems} appAnswers={appAnswers} />
+        </div>
       )}
     </div>
   )
