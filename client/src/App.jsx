@@ -168,8 +168,10 @@ function buildAnnotatedSegments(text, annotations) {
 function buildRichOverlay(text, annotations) {
   if (!text) return []
   const anns = (annotations || []).map(a => {
-    const idx = text.indexOf(a.text)
-    return idx >= 0 ? { start: idx, end: idx + a.text.length, color: a.color } : null
+    const start = (a.start != null) ? a.start : text.indexOf(a.text)
+    if (start < 0 || start > text.length) return null
+    const end = (a.end != null) ? a.end : start + a.text.length
+    return { start, end, color: a.color }
   }).filter(Boolean)
 
   const re = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g
@@ -909,10 +911,10 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
       case 'bold':      replaceSelection(`**${selectionInfo.text}**`); break
       case 'italic':    replaceSelection(`*${selectionInfo.text}*`); break
       case 'highlight':
-        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, color:value, memo:null }])
+        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:value, memo:null }])
         setSelectionInfo(null); break
       case 'memo':
-        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, color:'#ffd04a', memo:value||'' }])
+        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:'#ffd04a', memo:value||'' }])
         if (value?.trim()) showToast('메모 저장됨')
         setSelectionInfo(null); break
     }
@@ -1243,10 +1245,10 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
       case 'bold':   replaceSelection(`**${selectionInfo.text}**`); break
       case 'italic': replaceSelection(`*${selectionInfo.text}*`); break
       case 'highlight':
-        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, color:value, memo:null }])
+        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:value, memo:null }])
         setSelectionInfo(null); break
       case 'memo':
-        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, color:'#ffd04a', memo:value||'' }])
+        setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:'#ffd04a', memo:value||'' }])
         if (value?.trim()) showToast('메모 저장됨')
         setSelectionInfo(null); break
     }
