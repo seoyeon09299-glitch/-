@@ -1623,7 +1623,7 @@ export default function App() {
           </section>
       </div>
 
-      <BottomNav activeNav={activeNav} setActiveNav={setActiveNav} />
+      {view === 'main' && <BottomNav activeNav={activeNav} setActiveNav={setActiveNav} />}
 
       {tagItem && (
         <CategoryModal currentCategory={tagItem.category}
