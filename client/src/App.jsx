@@ -1178,13 +1178,14 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
           <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
           <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
         </div>
-        <div className="doc-page-dots">
-          <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
-          {MOCK_QUESTIONS.map((_,i) => (
-            <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
-          ))}
-          <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
-        </div>
+      </div>
+
+      <div className="doc-nav-bar">
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
+        {MOCK_QUESTIONS.map((_,i) => (
+          <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
+        ))}
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
       </div>
 
       <div className="doc-divider" />
@@ -1288,6 +1289,21 @@ export default function App() {
   const [editingItem, setEditingItem] = useState(null)
   const [selectedApp, setSelectedApp] = useState(null)
   const [activeNav,   setActiveNav]   = useState(2)
+
+  const docsScrollRef = useRef(null)
+  const libScrollRef  = useRef(null)
+  const docsScrollPos = useRef(0)
+  const libScrollPos  = useRef(0)
+
+  const handleMainTabChange = (newTab) => {
+    if (mainTab === 'docs'    && docsScrollRef.current) docsScrollPos.current = docsScrollRef.current.scrollTop
+    if (mainTab === 'library' && libScrollRef.current)  libScrollPos.current  = libScrollRef.current.scrollTop
+    setMainTab(newTab)
+    setTimeout(() => {
+      if (newTab === 'docs'    && docsScrollRef.current) docsScrollRef.current.scrollTop = docsScrollPos.current
+      if (newTab === 'library' && libScrollRef.current)  libScrollRef.current.scrollTop  = libScrollPos.current
+    }, 0)
+  }
 
   // 작성한 서류 탭 상태
   const [docsStatusFilter, setDocsStatusFilter] = useState(null)
@@ -1406,7 +1422,7 @@ export default function App() {
   // ── 메인 화면 ──
   return (
     <div className="app">
-      <MainTabHeader activeTab={mainTab} onChange={setMainTab} />
+      <MainTabHeader activeTab={mainTab} onChange={handleMainTabChange} />
 
       {mainTab === 'docs' && (
         <>
@@ -1427,7 +1443,7 @@ export default function App() {
               )
             })}
           </div>
-          <section className="section section--gray" style={{ flex:1, overflowY:'auto' }}>
+          <section ref={docsScrollRef} className="section section--gray" style={{ flex:1, overflowY:'auto' }}>
             <div className="sort-row" onClick={stop}>
               <button className="sort-btn tap" onClick={() => setSortOpen(o=>!o)}>
                 {sortOption} <ChevronIcon size={14} up={sortOpen} />
@@ -1517,7 +1533,7 @@ export default function App() {
               {libTagEditMode ? '완료' : '편집'}
             </button>
           </div>
-          <section className="section section--gray" style={{ flex:1, overflowY:'auto' }}>
+          <section ref={libScrollRef} className="section section--gray" style={{ flex:1, overflowY:'auto' }}>
             <div className="lib-grid">
               {filteredLib.length === 0
                 ? <div className="empty-state" style={{ gridColumn:'1/-1' }}>항목이 없습니다.</div>

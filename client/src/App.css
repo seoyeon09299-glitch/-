@@ -871,6 +871,18 @@ button {
 .doc-arrow:hover  { color: var(--text-dark); }
 .doc-arrow:disabled { opacity: 0.25; pointer-events: none; }
 
+.doc-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--white);
+  flex-shrink: 0;
+}
+
+.doc-detail-app .doc-nav-bar { flex-shrink: 0; }
+
 .doc-divider {
   height: 1px;
   background: var(--border);
