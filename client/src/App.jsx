@@ -709,6 +709,49 @@ function RenameTagModal({ tag, onClose, onRename }) {
   )
 }
 
+// ─── 서류 추가 모달 ──────────────────────────────────────────────────────────
+function AddAppModal({ onClose, onAdd }) {
+  const [company,  setCompany]  = useState('')
+  const [deadline, setDeadline] = useState('')
+
+  const handleAdd = () => {
+    if (!company.trim()) return
+    onAdd({
+      id: Date.now(),
+      company: company.trim(),
+      deadline: deadline ? `~ ${deadline}` : '마감일 미정',
+      remaining: '',
+      originalStatus: '작성중',
+    })
+  }
+
+  return (
+    <div className="modal-overlay" style={{ zIndex:600 }} onClick={onClose}>
+      <div className="modal-card add-cat-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">서류 추가</div>
+        <div className="add-cat-field">
+          <span className="add-cat-label">회사 / 직무</span>
+          <input className="add-cat-input" value={company}
+            onChange={e => setCompany(e.target.value)} autoFocus
+            placeholder="예) 삼성전자 [마케팅기획]"
+            onKeyDown={e => { if (e.key==='Enter') document.getElementById('deadline-input')?.focus() }} />
+        </div>
+        <div className="add-cat-field">
+          <span className="add-cat-label">마감일</span>
+          <input id="deadline-input" className="add-cat-input" value={deadline}
+            onChange={e => setDeadline(e.target.value)}
+            placeholder="예) 2026. 06. 30 18:00"
+            onKeyDown={e => { if (e.key==='Enter' && company.trim()) handleAdd() }} />
+        </div>
+        <div className="add-cat-actions">
+          <button className="add-cat-cancel tap" onClick={onClose}>취소</button>
+          <button className="add-cat-create tap" disabled={!company.trim()} onClick={handleAdd}>추가</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── 새 카테고리 추가 모달 ────────────────────────────────────────────────────
 function AddCategoryModal({ onClose, onAdd }) {
   const [name, setName] = useState('')
@@ -1357,6 +1400,8 @@ export default function App() {
   const [appAnswers,   setAppAnswers]   = useState(() => loadState('ji_answers',   {}))
   const [cardStatuses, setCardStatuses] = useState(() => loadState('ji_statuses',  {}))
   const [appQuestions, setAppQuestions] = useState(() => loadState('ji_questions', {}))
+  const [userApps,     setUserApps]     = useState(() => loadState('ji_userApps',  []))
+  const [showAddApp,   setShowAddApp]   = useState(false)
 
   const [view,        setView]        = useState('main')
   const [mainTab,     setMainTab]     = useState('docs')
@@ -1400,6 +1445,7 @@ export default function App() {
   useEffect(() => { saveState('ji_answers',   appAnswers)   }, [appAnswers])
   useEffect(() => { saveState('ji_statuses',  cardStatuses) }, [cardStatuses])
   useEffect(() => { saveState('ji_questions', appQuestions) }, [appQuestions])
+  useEffect(() => { saveState('ji_userApps',  userApps)     }, [userApps])
 
   useEffect(() => {
     const close = () => { setSortOpen(false); setCardDropdown(null); setLibMenu(null) }
@@ -1462,12 +1508,14 @@ export default function App() {
 
   const libFiltersMain = getLibFilters(libraryItems)
 
+  const allApps = useMemo(() => [...ALL_APPLICATIONS, ...userApps], [userApps])
+
   const filteredApps = useMemo(() => {
-    let apps = ALL_APPLICATIONS
+    let apps = allApps
     if (docsStatusFilter) apps = apps.filter(a => (cardStatuses[a.id]??a.originalStatus)===docsStatusFilter)
-    if (docsSearch.trim()) apps = apps.filter(a => a.company.includes(docsSearch))
+    if (docsSearch.trim()) apps = apps.filter(a => a.company.toLowerCase().includes(docsSearch.toLowerCase()))
     return apps
-  }, [docsStatusFilter, docsSearch, cardStatuses])
+  }, [docsStatusFilter, docsSearch, cardStatuses, allApps])
 
   const filteredLib = useMemo(() => {
     let items = libFilter===0 ? libraryItems : libraryItems.filter(i => i.category===libFiltersMain[libFilter]?.label)
@@ -1489,13 +1537,13 @@ export default function App() {
             <SearchIcon />
             <input className="lib-view-search__input" placeholder="검색"
               value={docsSearch} onChange={e => setDocsSearch(e.target.value)} />
-            <button className="lib-view-add tap"><PlusIcon /></button>
+            <button className="lib-view-add tap" onClick={() => setShowAddApp(true)}><PlusIcon /></button>
           </div>
           <div className="lib-view-filters">
             <button className={`lib-chip tap ${docsStatusFilter===null?'lib-chip--active':''}`}
-              onClick={() => setDocsStatusFilter(null)}>전체&nbsp;&nbsp;{ALL_APPLICATIONS.length}</button>
+              onClick={() => setDocsStatusFilter(null)}>전체&nbsp;&nbsp;{allApps.length}</button>
             {STATUS_TABS.map(tab => {
-              const count = ALL_APPLICATIONS.filter(a => (cardStatuses[a.id]??a.originalStatus)===tab).length
+              const count = allApps.filter(a => (cardStatuses[a.id]??a.originalStatus)===tab).length
               return (
                 <button key={tab} className={`lib-chip tap ${docsStatusFilter===tab?'lib-chip--active':''}`}
                   onClick={() => setDocsStatusFilter(tab)}>{tab}&nbsp;&nbsp;{count}</button>
@@ -1634,6 +1682,12 @@ export default function App() {
       {renamingTag && (
         <RenameTagModal tag={renamingTag} onClose={() => setRenamingTag(null)}
           onRename={(newLabel, newColor) => handleRenameTag(renamingTag.label, newLabel, newColor)} />
+      )}
+      {showAddApp && (
+        <AddAppModal
+          onClose={() => setShowAddApp(false)}
+          onAdd={newApp => { setUserApps(p => [...p, newApp]); setShowAddApp(false) }}
+        />
       )}
 
       {/* ── Overlay: 서류 상세 ── */}
