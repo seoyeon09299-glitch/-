@@ -1172,14 +1172,6 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
         <button className="edit-save-btn tap">저장</button>
       </div>
 
-      <div className="doc-question-area">
-        <div className="doc-question-text">{question.text}</div>
-        <div className="doc-progress-row">
-          <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
-          <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
-        </div>
-      </div>
-
       <div className="doc-nav-bar">
         <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
         {MOCK_QUESTIONS.map((_,i) => (
@@ -1188,7 +1180,13 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
         <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
       </div>
 
-      <div className="doc-divider" />
+      <div className="doc-question-area">
+        <div className="doc-question-text">{question.text}</div>
+        <div className="doc-progress-row">
+          <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
+          <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
+        </div>
+      </div>
 
       {proposalBlocks.length > 0 && (
         <div className="doc-proposals">
@@ -1424,8 +1422,7 @@ export default function App() {
     <div className="app">
       <MainTabHeader activeTab={mainTab} onChange={handleMainTabChange} />
 
-      {mainTab === 'docs' && (
-        <>
+      <div style={{ display: mainTab==='docs' ? 'contents' : 'none' }}>
           <div className="lib-view-search">
             <SearchIcon />
             <input className="lib-view-search__input" placeholder="검색"
@@ -1500,11 +1497,9 @@ export default function App() {
               }
             </div>
           </section>
-        </>
-      )}
+      </div>
 
-      {mainTab === 'library' && (
-        <>
+      <div style={{ display: mainTab==='library' ? 'contents' : 'none' }}>
           <div className="lib-view-search">
             <SearchIcon />
             <input className="lib-view-search__input" placeholder="검색"
@@ -1564,8 +1559,7 @@ export default function App() {
               }
             </div>
           </section>
-        </>
-      )}
+      </div>
 
       <BottomNav activeNav={activeNav} setActiveNav={setActiveNav} />
 
