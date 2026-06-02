@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import './App.css'
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
@@ -120,19 +120,27 @@ function splitIntoSentences(text) {
 
 // 모의 맞춤법 검사
 function getMockSpellErrors(text) {
-  if (!text || text.length < 10) return []
-  const results = []
-  const checks = [
-    { find: '증명해 왔으며', fix: '증명해왔으며', note: '보조동사는 붙여 씁니다.' },
-    { find: '삶을 더 편리하게', fix: '삶을더 편리하게', note: '띄어쓰기를 확인하세요.' },
+  if (!text || text.length < 5) return []
+  const rules = [
+    ['왠만하면',  '웬만하면',   '"왠만하면"은 "웬만하면"이 맞습니다.'],
+    ['어떻해',    '어떻게 해',  '"어떻해"는 "어떻게 해"로 써야 합니다.'],
+    ['오랫만에',  '오랜만에',   '"오랫만에"는 "오랜만에"가 맞습니다.'],
+    ['설레임',    '설렘',       '"설레임"은 "설렘"이 맞습니다.'],
+    ['않되',      '안 돼',      '"않되"는 "안 돼"로 써야 합니다.'],
+    ['안됩니다',  '안 됩니다',  '띄어쓰기: "안 됩니다"가 맞습니다.'],
+    ['증명해 왔으며', '증명해왔으며', '보조동사는 붙여 씁니다.'],
+    ['그 동안',   '그동안',     '"그 동안"은 "그동안"으로 붙여 씁니다.'],
+    ['오랫동안',  '오랫동안',   '바른 표현입니다.'],
+    ['데로',      '대로',       '"데로"는 문맥에 따라 "대로"가 맞을 수 있습니다.'],
+    ['로써',      '로써',       '수단·도구에는 "-로써"가 맞습니다.'],
+    ['함으로서',  '함으로써',   '수단·방법의 뜻에는 "함으로써"를 씁니다.'],
+    ['어떻게든지', '어떻게든지', '바른 표현입니다.'],
+    ['개발자로써', '개발자로서', '자격·지위에는 "-로서"를 씁니다.'],
   ]
-  checks.forEach(({ find, fix, note }) => {
-    if (text.includes(find)) results.push({ original: find, correction: fix, note })
-  })
-  if (results.length === 0 && text.length > 20) {
-    results.push({ original: text.slice(0, 8), correction: text.slice(0, 8), note: '올바른 표현입니다.' })
-  }
-  return results
+  const errors = rules
+    .filter(([find, fix]) => text.includes(find) && find !== fix)
+    .map(([find, fix, note]) => ({ original: find, correction: fix, note }))
+  return errors
 }
 
 // ─── 어노테이션 세그먼트 빌더 ─────────────────────────────────────────────────
@@ -154,6 +162,55 @@ function buildAnnotatedSegments(text, annotations) {
   }
   if (pos < text.length) parts.push({ text: text.slice(pos), annotation: null })
   return parts
+}
+
+// ─── 서식(볼드/이태릭) + 어노테이션 오버레이 빌더 ────────────────────────────
+function buildRichOverlay(text, annotations) {
+  if (!text) return []
+  const anns = (annotations || []).map(a => {
+    const idx = text.indexOf(a.text)
+    return idx >= 0 ? { start: idx, end: idx + a.text.length, color: a.color } : null
+  }).filter(Boolean)
+
+  const re = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g
+  let last = 0, key = 0
+  const els = []
+
+  const pushPlain = (t, offset) => {
+    if (!t) return
+    const hits = anns
+      .filter(r => r.start < offset + t.length && r.end > offset)
+      .map(r => ({ s: Math.max(0, r.start - offset), e: Math.min(t.length, r.end - offset), c: r.color }))
+      .sort((a, b) => a.s - b.s)
+    if (!hits.length) { els.push(<span key={key++}>{t}</span>); return }
+    let p = 0
+    for (const h of hits) {
+      if (h.s > p) els.push(<span key={key++}>{t.slice(p, h.s)}</span>)
+      els.push(<mark key={key++} style={{ backgroundColor: h.c + '55' }}>{t.slice(h.s, h.e)}</mark>)
+      p = h.e
+    }
+    if (p < t.length) els.push(<span key={key++}>{t.slice(p)}</span>)
+  }
+
+  let m
+  while ((m = re.exec(text)) !== null) {
+    pushPlain(text.slice(last, m.index), last)
+    const bold = m[1] !== undefined
+    const content = bold ? m[1] : m[2]
+    const ci = m.index + (bold ? 2 : 1)
+    const annHit = anns.find(r => r.start < ci + content.length && r.end > ci)
+    const bg = annHit ? { backgroundColor: annHit.color + '55' } : {}
+    els.push(
+      <span key={key++}>
+        <span style={{ color: 'transparent' }}>{bold ? '**' : '*'}</span>
+        {bold ? <strong style={bg}>{content}</strong> : <em style={bg}>{content}</em>}
+        <span style={{ color: 'transparent' }}>{bold ? '**' : '*'}</span>
+      </span>
+    )
+    last = m.index + m[0].length
+  }
+  pushPlain(text.slice(last), last)
+  return els
 }
 
 // 검색 스니펫 내 검색어 강조
@@ -476,25 +533,18 @@ function AnnotateSheetContent({ annotations, onDelete }) {
 // ─── 어노테이션 오버레이 텍스트 영역 ─────────────────────────────────────────
 function AnnotatedTextArea({ value, onChange, onMouseUp, annotations, className, placeholder, autoFocus, innerRef }) {
   const overlayRef = useRef(null)
-  const hasAnns    = (annotations || []).length > 0
 
   const handleScroll = (e) => {
     if (overlayRef.current) overlayRef.current.scrollTop = e.target.scrollTop
   }
 
-  const segments = useMemo(() => buildAnnotatedSegments(value || '', annotations || []), [value, annotations])
+  const overlayContent = useMemo(() => buildRichOverlay(value || '', annotations || []), [value, annotations])
 
   return (
     <div className="annotated-wrapper">
-      {hasAnns && (
-        <div ref={overlayRef} className="annotation-overlay" aria-hidden="true">
-          {segments.map((seg, i) =>
-            seg.annotation
-              ? <mark key={i} style={{ backgroundColor: seg.annotation.color + '66' }}>{seg.text}</mark>
-              : <span key={i}>{seg.text}</span>
-          )}
-        </div>
-      )}
+      <div ref={overlayRef} className="annotation-overlay" aria-hidden="true">
+        {overlayContent}
+      </div>
       <textarea
         ref={innerRef}
         className={className}
@@ -504,7 +554,6 @@ function AnnotatedTextArea({ value, onChange, onMouseUp, annotations, className,
         onScroll={handleScroll}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        style={hasAnns ? { background: 'transparent' } : {}}
       />
     </div>
   )
@@ -737,7 +786,7 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
       setActiveSheet('spell'); setSpellLoading(true); setSpellErrors([])
       fetch('/api/spell-check', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:content}) })
         .then(r => r.json())
-        .then(d => { setSpellErrors(d.errors||[]); setSpellLoading(false) })
+        .then(d => { if (d.error) throw new Error(d.error); setSpellErrors(d.errors||[]); setSpellLoading(false) })
         .catch(() => { setSpellErrors(getMockSpellErrors(content)); setSpellLoading(false) })
     } else {
       setActiveSheet(prev => prev === name ? null : name)
@@ -1064,7 +1113,7 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
       setActiveSheet('spell'); setSpellLoading(true); setSpellErrors([])
       fetch('/api/spell-check', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:ans}) })
         .then(r => r.json())
-        .then(d => { setSpellErrors(d.errors||[]); setSpellLoading(false) })
+        .then(d => { if (d.error) throw new Error(d.error); setSpellErrors(d.errors||[]); setSpellLoading(false) })
         .catch(() => { setSpellErrors(getMockSpellErrors(ans)); setSpellLoading(false) })
     } else {
       setActiveSheet(prev => prev === name ? null : name)
@@ -1326,7 +1375,7 @@ export default function App() {
     setMainTab(newTab)
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (mainTab === 'docs'    && docsScrollRef.current) docsScrollRef.current.scrollTop = docsScrollPos.current
     if (mainTab === 'library' && libScrollRef.current)  libScrollRef.current.scrollTop  = libScrollPos.current
   }, [mainTab])

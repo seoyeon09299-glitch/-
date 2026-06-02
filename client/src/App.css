@@ -1879,7 +1879,8 @@ button {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: auto;
-  color: transparent;
+  /* 투명→실제 색: overlay 텍스트가 보여야 함 */
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.7;
@@ -1893,6 +1894,14 @@ button {
   position: relative;
   z-index: 2;
   flex: 1;
+  /* textarea 텍스트 투명 처리: overlay로 렌더링 */
+  color: transparent !important;
+  caret-color: var(--text-primary);
+  background: transparent !important;
+}
+.annotated-wrapper .edit-textarea::placeholder,
+.annotated-wrapper .doc-textarea::placeholder {
+  color: #cccccc;
 }
 
 .edit-app .annotation-overlay      { padding: 20px 16px; }
