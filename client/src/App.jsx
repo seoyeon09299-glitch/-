@@ -1172,20 +1172,20 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
         <button className="edit-save-btn tap">저장</button>
       </div>
 
-      <div className="doc-nav-bar">
-        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
-        {MOCK_QUESTIONS.map((_,i) => (
-          <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
-        ))}
-        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
-      </div>
-
       <div className="doc-question-area">
         <div className="doc-question-text">{question.text}</div>
         <div className="doc-progress-row">
           <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
           <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
         </div>
+      </div>
+
+      <div className="doc-nav-bar">
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
+        {MOCK_QUESTIONS.map((_,i) => (
+          <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
+        ))}
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(MOCK_QUESTIONS.length-1, q+1))} disabled={currentQ===MOCK_QUESTIONS.length-1}>›</button>
       </div>
 
       {proposalBlocks.length > 0 && (
@@ -1297,11 +1297,12 @@ export default function App() {
     if (mainTab === 'docs'    && docsScrollRef.current) docsScrollPos.current = docsScrollRef.current.scrollTop
     if (mainTab === 'library' && libScrollRef.current)  libScrollPos.current  = libScrollRef.current.scrollTop
     setMainTab(newTab)
-    setTimeout(() => {
-      if (newTab === 'docs'    && docsScrollRef.current) docsScrollRef.current.scrollTop = docsScrollPos.current
-      if (newTab === 'library' && libScrollRef.current)  libScrollRef.current.scrollTop  = libScrollPos.current
-    }, 0)
   }
+
+  useEffect(() => {
+    if (mainTab === 'docs'    && docsScrollRef.current) docsScrollRef.current.scrollTop = docsScrollPos.current
+    if (mainTab === 'library' && libScrollRef.current)  libScrollRef.current.scrollTop  = libScrollPos.current
+  }, [mainTab])
 
   // 작성한 서류 탭 상태
   const [docsStatusFilter, setDocsStatusFilter] = useState(null)
@@ -1422,7 +1423,7 @@ export default function App() {
     <div className="app">
       <MainTabHeader activeTab={mainTab} onChange={handleMainTabChange} />
 
-      <div style={{ display: mainTab==='docs' ? 'contents' : 'none' }}>
+      <div style={{ display: mainTab==='docs' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0 }}>
           <div className="lib-view-search">
             <SearchIcon />
             <input className="lib-view-search__input" placeholder="검색"
@@ -1499,7 +1500,7 @@ export default function App() {
           </section>
       </div>
 
-      <div style={{ display: mainTab==='library' ? 'contents' : 'none' }}>
+      <div style={{ display: mainTab==='library' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0 }}>
           <div className="lib-view-search">
             <SearchIcon />
             <input className="lib-view-search__input" placeholder="검색"

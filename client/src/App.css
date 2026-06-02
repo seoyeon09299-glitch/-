@@ -806,7 +806,6 @@ button {
 .doc-question-area {
   padding: 16px 16px 14px;
   background: var(--white);
-  border-bottom: 1px solid var(--border);
 }
 .doc-question-text {
   font-size: 14px;
@@ -878,6 +877,7 @@ button {
   gap: 6px;
   padding: 8px 16px;
   background: var(--white);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
