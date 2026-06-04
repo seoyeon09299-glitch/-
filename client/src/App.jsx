@@ -164,54 +164,69 @@ function buildAnnotatedSegments(text, annotations) {
   return parts
 }
 
-// ─── 서식(볼드/이태릭) + 어노테이션 오버레이 빌더 ────────────────────────────
-function buildRichOverlay(text, annotations) {
-  if (!text) return []
-  const anns = (annotations || []).map(a => {
-    const start = (a.start != null) ? a.start : text.indexOf(a.text)
-    if (start < 0 || start > text.length) return null
-    const end = (a.end != null) ? a.end : start + a.text.length
-    return { start, end, color: a.color }
+// ─── 서식 범위 조정 (텍스트 편집 시 start/end 위치 갱신) ─────────────────────
+function adjustRanges(ranges, oldText, newText) {
+  if (!ranges || !ranges.length) return ranges
+  let prefixLen = 0
+  const minLen = Math.min(oldText.length, newText.length)
+  while (prefixLen < minLen && oldText[prefixLen] === newText[prefixLen]) prefixLen++
+  let suffixLen = 0
+  const maxSuffix = Math.min(oldText.length - prefixLen, newText.length - prefixLen)
+  while (suffixLen < maxSuffix &&
+         oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]) {
+    suffixLen++
+  }
+  const editStart = prefixLen
+  const oldEditEnd = oldText.length - suffixLen
+  const newEditEnd = newText.length - suffixLen
+  const delta = newEditEnd - oldEditEnd
+  return ranges.map(r => {
+    if (r.end <= editStart) return r
+    if (r.start >= oldEditEnd) return { ...r, start: r.start + delta, end: r.end + delta }
+    const newEnd = r.end >= oldEditEnd ? r.end + delta : r.end
+    if (newEnd <= r.start) return null
+    return { ...r, end: Math.max(r.start + 1, newEnd) }
   }).filter(Boolean)
+}
 
-  const re = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g
-  let last = 0, key = 0
-  const els = []
-
-  const pushPlain = (t, offset) => {
-    if (!t) return
-    const hits = anns
-      .filter(r => r.start < offset + t.length && r.end > offset)
-      .map(r => ({ s: Math.max(0, r.start - offset), e: Math.min(t.length, r.end - offset), c: r.color }))
-      .sort((a, b) => a.s - b.s)
-    if (!hits.length) { els.push(<span key={key++}>{t}</span>); return }
-    let p = 0
-    for (const h of hits) {
-      if (h.s > p) els.push(<span key={key++}>{t.slice(p, h.s)}</span>)
-      els.push(<mark key={key++} style={{ backgroundColor: h.c + '55' }}>{t.slice(h.s, h.e)}</mark>)
-      p = h.e
+// ─── 서식(볼드/이태릭) + 어노테이션 오버레이 빌더 ────────────────────────────
+// formatting: [{id, start, end, type:'bold'|'italic'}]  ← 텍스트에 ** 없음
+function buildRichOverlay(text, annotations, formatting) {
+  if (!text) return []
+  const pts = new Set([0, text.length])
+  for (const f of (formatting || [])) {
+    if (f.start >= 0 && f.start <= text.length) pts.add(f.start)
+    if (f.end   >= 0 && f.end   <= text.length) pts.add(f.end)
+  }
+  for (const a of (annotations || [])) {
+    const s = (a.start != null) ? a.start : text.indexOf(a.text)
+    if (s >= 0 && s <= text.length) {
+      pts.add(s); pts.add(Math.min(text.length, (a.end != null) ? a.end : s + a.text.length))
     }
-    if (p < t.length) els.push(<span key={key++}>{t.slice(p)}</span>)
   }
-
-  let m
-  while ((m = re.exec(text)) !== null) {
-    pushPlain(text.slice(last, m.index), last)
-    const bold = m[1] !== undefined
-    const content = bold ? m[1] : m[2]
-    const ci = m.index + (bold ? 2 : 1)
-    const annHit = anns.find(r => r.start < ci + content.length && r.end > ci)
-    const bg = annHit ? { backgroundColor: annHit.color + '55' } : {}
-    els.push(
-      <span key={key++}>
-        <span style={{ fontSize: 0 }}>{bold ? '**' : '*'}</span>
-        {bold ? <strong style={bg}>{content}</strong> : <em style={bg}>{content}</em>}
-        <span style={{ fontSize: 0 }}>{bold ? '**' : '*'}</span>
-      </span>
-    )
-    last = m.index + m[0].length
+  const sorted = [...pts].sort((a, b) => a - b)
+  const els = []; let key = 0
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const ss = sorted[i], se = sorted[i + 1]
+    const seg = text.slice(ss, se); if (!seg) continue
+    const isBold   = (formatting || []).some(f => f.type === 'bold'   && f.start <= ss && f.end >= se)
+    const isItalic = (formatting || []).some(f => f.type === 'italic' && f.start <= ss && f.end >= se)
+    let hlColor = null
+    for (const a of (annotations || [])) {
+      const s = (a.start != null) ? a.start : text.indexOf(a.text)
+      if (s >= 0) {
+        const e = (a.end != null) ? a.end : s + a.text.length
+        if (s <= ss && e >= se) { hlColor = a.color; break }
+      }
+    }
+    const k = key++
+    const hl = hlColor ? { backgroundColor: hlColor + '55' } : {}
+    if (isBold && isItalic) els.push(<strong key={k} style={hl}><em>{seg}</em></strong>)
+    else if (isBold)        els.push(<strong key={k} style={hl}>{seg}</strong>)
+    else if (isItalic)      els.push(<em key={k} style={hl}>{seg}</em>)
+    else if (hlColor)       els.push(<mark key={k} style={hl}>{seg}</mark>)
+    else                    els.push(<span key={k}>{seg}</span>)
   }
-  pushPlain(text.slice(last), last)
   return els
 }
 
@@ -533,14 +548,14 @@ function AnnotateSheetContent({ annotations, onDelete }) {
 }
 
 // ─── 어노테이션 오버레이 텍스트 영역 ─────────────────────────────────────────
-function AnnotatedTextArea({ value, onChange, onMouseUp, annotations, className, placeholder, autoFocus, innerRef }) {
+function AnnotatedTextArea({ value, onChange, onMouseUp, annotations, formatting, className, placeholder, autoFocus, innerRef }) {
   const overlayRef = useRef(null)
 
   const handleScroll = (e) => {
     if (overlayRef.current) overlayRef.current.scrollTop = e.target.scrollTop
   }
 
-  const overlayContent = useMemo(() => buildRichOverlay(value || '', annotations || []), [value, annotations])
+  const overlayContent = useMemo(() => buildRichOverlay(value || '', annotations || [], formatting || []), [value, annotations, formatting])
 
   return (
     <div className="annotated-wrapper">
@@ -814,6 +829,8 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
 
   // 어노테이션 (하이라이트 + 메모)
   const [annotations, setAnnotations] = useState([])
+  // 서식 (볼드/이태릭) — 텍스트가 아닌 별도 범위 state
+  const [formatting,  setFormatting]  = useState([])
 
   // 텍스트 선택 툴바
   const [selectionInfo, setSelectionInfo] = useState(null)
@@ -897,23 +914,17 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
     })
   }
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
-  const replaceSelection = (replacement) => {
-    if (!selectionInfo) return
-    const { start } = selectionInfo
-    const nc = content.slice(0, start) + replacement + content.slice(selectionInfo.end)
-    setContent(nc); pushHistory(nc); setSelectionInfo(null)
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current
-      if (ta) ta.setSelectionRange(start + replacement.length, start + replacement.length)
-    })
-  }
   const handleSelectionAction = (action, value) => {
     switch (action) {
       case 'copy':
         navigator.clipboard.writeText(selectionInfo?.text||'').catch(()=>{})
         setSelectionInfo(null); break
-      case 'bold':      replaceSelection(`**${selectionInfo.text}**`); break
-      case 'italic':    replaceSelection(`*${selectionInfo.text}*`); break
+      case 'bold':
+        setFormatting(prev => [...prev, { id:Date.now(), start:selectionInfo.start, end:selectionInfo.end, type:'bold' }])
+        setSelectionInfo(null); break
+      case 'italic':
+        setFormatting(prev => [...prev, { id:Date.now(), start:selectionInfo.start, end:selectionInfo.end, type:'italic' }])
+        setSelectionInfo(null); break
       case 'highlight':
         setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:value, memo:null }])
         setSelectionInfo(null); break
@@ -967,8 +978,13 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
         <HighlightedText text={content} errors={spellErrors} />
       ) : (
         <AnnotatedTextArea innerRef={textareaRef} className="edit-textarea" value={content}
-          onChange={e => { setContent(e.target.value); pushHistory(e.target.value) }}
-          onMouseUp={handleTextMouseUp} annotations={annotations}
+          onChange={e => {
+            const v = e.target.value
+            setFormatting(prev => adjustRanges(prev, content, v))
+            setAnnotations(prev => adjustRanges(prev, content, v))
+            setContent(v); pushHistory(v)
+          }}
+          onMouseUp={handleTextMouseUp} annotations={annotations} formatting={formatting}
           placeholder="내용을 입력하세요." autoFocus />
       )}
 
@@ -1098,8 +1114,11 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
   const [previewItem,    setPreviewItem]    = useState(null)
 
   // 질문 텍스트 편집
-  const [editingQIdx,  setEditingQIdx]  = useState(null)
-  const [editingQText, setEditingQText] = useState('')
+  const [editingQIdx,    setEditingQIdx]    = useState(null)
+  const [editingQText,   setEditingQText]   = useState('')
+  // 제한 글자수 편집
+  const [editingMaxChars, setEditingMaxChars] = useState(false)
+  const [maxCharsInput,   setMaxCharsInput]   = useState('')
 
   // 툴 시트 상태
   const [activeSheet,       setActiveSheet]       = useState(null)
@@ -1111,6 +1130,8 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
 
   // 어노테이션 (하이라이트 + 메모)
   const [annotations, setAnnotations] = useState([])
+  // 서식 (볼드/이태릭) — 텍스트가 아닌 별도 범위 state
+  const [formatting,  setFormatting]  = useState([])
 
   // 되돌리기 / 다시하기
   const [qHistory, setQHistory] = useState([answers[0] || ''])
@@ -1140,6 +1161,7 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
     setQHistIdx(0)
     setSelectedSentences([])
     setAnnotations([])
+    setFormatting([])
   }, [currentQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pushHistory = (val) => {
@@ -1234,24 +1256,17 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
     })
   }
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
-  const replaceSelection = (replacement) => {
-    if (!selectionInfo) return
-    const { start } = selectionInfo
-    const newAns = ans.slice(0, start) + replacement + ans.slice(selectionInfo.end)
-    const next = [...answers]; next[currentQ] = newAns
-    onAnswersChange(next); pushHistory(newAns); setSelectionInfo(null)
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current
-      if (ta) ta.setSelectionRange(start + replacement.length, start + replacement.length)
-    })
-  }
   const handleSelectionAction = (action, value) => {
     switch (action) {
       case 'copy':
         navigator.clipboard.writeText(selectionInfo?.text||'').catch(()=>{})
         setSelectionInfo(null); break
-      case 'bold':   replaceSelection(`**${selectionInfo.text}**`); break
-      case 'italic': replaceSelection(`*${selectionInfo.text}*`); break
+      case 'bold':
+        setFormatting(prev => [...prev, { id:Date.now(), start:selectionInfo.start, end:selectionInfo.end, type:'bold' }])
+        setSelectionInfo(null); break
+      case 'italic':
+        setFormatting(prev => [...prev, { id:Date.now(), start:selectionInfo.start, end:selectionInfo.end, type:'italic' }])
+        setSelectionInfo(null); break
       case 'highlight':
         setAnnotations(prev => [...prev, { id:Date.now(), text:selectionInfo.text, start:selectionInfo.start, end:selectionInfo.end, color:value, memo:null }])
         setSelectionInfo(null); break
@@ -1304,7 +1319,29 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
         )}
         <div className="doc-progress-row">
           <div className="doc-progress-bar"><div className="doc-progress-fill" style={{ width:`${progress*100}%` }} /></div>
-          <span className="doc-char-count">{charCount}/{question.maxChars}자</span>
+          <span className="doc-char-count">
+            {charCount}/
+            {editingMaxChars
+              ? <input className="doc-maxchars-input" type="number" value={maxCharsInput}
+                  onChange={e => setMaxCharsInput(e.target.value)}
+                  onBlur={() => {
+                    const n = parseInt(maxCharsInput, 10)
+                    if (n > 0) {
+                      const newQs = questions.map((q, i) => i === currentQ ? { ...q, maxChars: n } : q)
+                      onQuestionsChange(newQs)
+                    }
+                    setEditingMaxChars(false)
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                  onClick={e => e.stopPropagation()}
+                  autoFocus />
+              : <span className="doc-maxchars-editable"
+                  onClick={() => { setEditingMaxChars(true); setMaxCharsInput(String(question.maxChars)) }}>
+                  {question.maxChars}
+                </span>
+            }
+            자
+          </span>
         </div>
       </div>
 
@@ -1338,11 +1375,13 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
       ) : (
         <AnnotatedTextArea innerRef={textareaRef} className="doc-textarea" value={ans}
           onChange={e => {
-            const val = e.target.value
-            const n = [...answers]; n[currentQ] = val; onAnswersChange(n)
-            pushHistory(val)
+            const v = e.target.value
+            setFormatting(prev => adjustRanges(prev, ans, v))
+            setAnnotations(prev => adjustRanges(prev, ans, v))
+            const n = [...answers]; n[currentQ] = v; onAnswersChange(n)
+            pushHistory(v)
           }}
-          onMouseUp={handleTextMouseUp} annotations={annotations}
+          onMouseUp={handleTextMouseUp} annotations={annotations} formatting={formatting}
           placeholder="내용을 입력하세요." />
       )}
 
@@ -1410,8 +1449,10 @@ export default function App() {
   const [appAnswers,   setAppAnswers]   = useState(() => loadState('ji_answers',   {}))
   const [cardStatuses, setCardStatuses] = useState(() => loadState('ji_statuses',  {}))
   const [appQuestions, setAppQuestions] = useState(() => loadState('ji_questions', {}))
-  const [userApps,     setUserApps]     = useState(() => loadState('ji_userApps',  []))
+  const [userApps,     setUserApps]     = useState(() => loadState('ji_userApps',   []))
+  const [hiddenAppIds, setHiddenAppIds] = useState(() => loadState('ji_hiddenApps', []))
   const [showAddApp,   setShowAddApp]   = useState(false)
+  const [appCardMenu,  setAppCardMenu]  = useState(null)
 
   const [view,        setView]        = useState('main')
   const [mainTab,     setMainTab]     = useState('docs')
@@ -1455,10 +1496,11 @@ export default function App() {
   useEffect(() => { saveState('ji_answers',   appAnswers)   }, [appAnswers])
   useEffect(() => { saveState('ji_statuses',  cardStatuses) }, [cardStatuses])
   useEffect(() => { saveState('ji_questions', appQuestions) }, [appQuestions])
-  useEffect(() => { saveState('ji_userApps',  userApps)     }, [userApps])
+  useEffect(() => { saveState('ji_userApps',   userApps)     }, [userApps])
+  useEffect(() => { saveState('ji_hiddenApps', hiddenAppIds) }, [hiddenAppIds])
 
   useEffect(() => {
-    const close = () => { setSortOpen(false); setCardDropdown(null); setLibMenu(null) }
+    const close = () => { setSortOpen(false); setCardDropdown(null); setLibMenu(null); setAppCardMenu(null) }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [])
@@ -1518,7 +1560,7 @@ export default function App() {
 
   const libFiltersMain = getLibFilters(libraryItems)
 
-  const allApps = useMemo(() => [...ALL_APPLICATIONS, ...userApps], [userApps])
+  const allApps = useMemo(() => [...ALL_APPLICATIONS, ...userApps].filter(a => !hiddenAppIds.includes(a.id)), [userApps, hiddenAppIds])
 
   const filteredApps = useMemo(() => {
     let apps = allApps
@@ -1608,6 +1650,18 @@ export default function App() {
                                 <button key={s} className={`dropdown-item tap ${status===s?'dropdown-item--active':''}`}
                                   onClick={() => { setCardStatuses(p=>({...p,[card.id]:s})); setCardDropdown(null) }}>{s}</button>
                               ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="app-card__more-wrap" onClick={stop}>
+                          <button className="more-btn tap" onClick={() => setAppCardMenu(appCardMenu===card.id?null:card.id)}><MoreVertIcon /></button>
+                          {appCardMenu === card.id && (
+                            <div className="dropdown dropdown--right">
+                              <button className="dropdown-item dropdown-item--danger tap" onClick={() => {
+                                if (userApps.find(a => a.id === card.id)) setUserApps(p => p.filter(a => a.id !== card.id))
+                                else setHiddenAppIds(p => [...p, card.id])
+                                setAppCardMenu(null)
+                              }}>삭제</button>
                             </div>
                           )}
                         </div>
