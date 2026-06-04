@@ -1351,6 +1351,15 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
           <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
         ))}
         <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(questions.length-1, q+1))} disabled={currentQ===questions.length-1}>›</button>
+        <button className="doc-nav-add tap" onClick={() => {
+          const newQ = { text: '새 문항', maxChars: 1000 }
+          const newQs = [...questions, newQ]
+          onQuestionsChange(newQs)
+          const newIdx = newQs.length - 1
+          setCurrentQ(newIdx)
+          setEditingQIdx(newIdx)
+          setEditingQText(newQ.text)
+        }}>+</button>
       </div>
 
       {proposalBlocks.length > 0 && (

@@ -954,6 +954,17 @@ button {
 
 .doc-detail-app .doc-nav-bar { flex-shrink: 0; }
 
+.doc-nav-add {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--orange);
+  padding: 0 4px;
+  margin-left: 4px;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.doc-nav-add:hover { opacity: 1; }
+
 .doc-divider {
   height: 1px;
   background: var(--border);
