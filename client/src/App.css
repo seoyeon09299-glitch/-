@@ -826,7 +826,6 @@ button {
   gap: 4px;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
 }
 .doc-question-text {
   font-size: 14px;
@@ -835,8 +834,9 @@ button {
   line-height: 1.55;
   letter-spacing: -0.2px;
   flex: 1;
+  max-height: 68px;   /* 3줄 정도 보이고 그 이상은 스크롤 */
   overflow-y: auto;
-  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 .doc-question-edit-btn {
   flex-shrink: 0;
