@@ -847,6 +847,21 @@ button {
   cursor: pointer;
   opacity: 0.5;
 }
+.doc-question-del-btn {
+  flex-shrink: 0;
+  padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+.doc-question-del-btn:hover { opacity: 1; }
+.doc-question-text--empty {
+  color: #cccccc;
+  font-weight: 400;
+  font-style: italic;
+}
 .doc-question-edit-ta {
   flex: 1;
   font-size: 14px;
@@ -1182,6 +1197,14 @@ button {
 }
 .add-cat-input:focus  { border-color: var(--primary); }
 .add-cat-input::placeholder { color: #ccc; }
+.add-cat-input--datetime {
+  color-scheme: light;
+  cursor: pointer;
+}
+.add-cat-input--datetime::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.5;
+}
 
 .add-cat-colors {
   display: flex;

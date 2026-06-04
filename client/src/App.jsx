@@ -30,17 +30,18 @@ const AddIcon      = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill
 const PencilIcon   = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="#aaaaaa"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>)
 const SpinnerIcon  = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6813" strokeWidth="2.5" strokeLinecap="round" style={{animation:'spin 1s linear infinite'}}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>)
 const NotesIcon    = ({ color='#757575' }) => (<svg width="22" height="22" viewBox="0 0 24 24" fill={color}><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>)
+const TrashIcon    = ({ size=16, color='#e55' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>)
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const STATUS_TABS = ['작성중', '제출 완료', '서류 합격', '1차 합격', '2차 합격']
 
 const ALL_APPLICATIONS = [
-  { id: 1, company: '코스맥스그룹 [코스맥스] 전략마케팅', deadline: '~ 2026. 04.06 16:00', remaining: '4일 남음',   originalStatus: '작성중' },
-  { id: 2, company: 'CJ그룹 [CJ 올리브영] MD',          deadline: '~ 2025. 04.03 18:00', remaining: '11개월 지남', originalStatus: '작성중' },
-  { id: 3, company: '콜마그룹 한국콜마(내곡)_영업',       deadline: '~ 2024. 10.03 23:59', remaining: '1년 지남',   originalStatus: '작성중' },
-  { id: 4, company: 'LG전자 [LG전자] 마케팅기획',         deadline: '~ 2026. 03.15 18:00', remaining: '2개월 지남', originalStatus: '제출 완료' },
-  { id: 5, company: '삼성전자 [삼성전자] 영업마케팅',      deadline: '~ 2026. 02.28 18:00', remaining: '2개월 지남', originalStatus: '서류 합격' },
-  { id: 6, company: 'SK하이닉스 [SK하이닉스] 마케팅기획', deadline: '~ 2026. 01.30 18:00', remaining: '3개월 지남', originalStatus: '1차 합격' },
+  { id: 1, company: '코스맥스그룹 [코스맥스] 전략마케팅', deadlineIso: '2026-04-06T16:00', originalStatus: '작성중' },
+  { id: 2, company: 'CJ그룹 [CJ 올리브영] MD',          deadlineIso: '2025-04-03T18:00', originalStatus: '작성중' },
+  { id: 3, company: '콜마그룹 한국콜마(내곡)_영업',       deadlineIso: '2024-10-03T23:59', originalStatus: '작성중' },
+  { id: 4, company: 'LG전자 [LG전자] 마케팅기획',         deadlineIso: '2026-03-15T18:00', originalStatus: '제출 완료' },
+  { id: 5, company: '삼성전자 [삼성전자] 영업마케팅',      deadlineIso: '2026-02-28T18:00', originalStatus: '서류 합격' },
+  { id: 6, company: 'SK하이닉스 [SK하이닉스] 마케팅기획', deadlineIso: '2026-01-30T18:00', originalStatus: '1차 합격' },
 ]
 
 const SORT_OPTIONS = ['수정일순', '최신순', '마감일순']
@@ -141,6 +142,32 @@ function getMockSpellErrors(text) {
     .filter(([find, fix]) => text.includes(find) && find !== fix)
     .map(([find, fix, note]) => ({ original: find, correction: fix, note }))
   return errors
+}
+
+// ─── 마감일 헬퍼 ──────────────────────────────────────────────────────────────
+function formatDeadline(iso) {
+  if (!iso) return '마감일 미정'
+  const d = new Date(iso)
+  if (isNaN(d)) return '마감일 미정'
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `~ ${y}. ${m}. ${day} ${h}:${min}`
+}
+function calcRemaining(iso) {
+  if (!iso) return ''
+  const deadline = new Date(iso)
+  if (isNaN(deadline)) return ''
+  const now = new Date()
+  const diffDays = Math.ceil((deadline - now) / 86400000)
+  if (diffDays > 0)  return `${diffDays}일 남음`
+  if (diffDays === 0) return '오늘 마감'
+  const abs = Math.abs(diffDays)
+  if (abs < 30)  return `${abs}일 지남`
+  if (abs < 365) return `${Math.round(abs / 30)}개월 지남`
+  return `${Math.round(abs / 365)}년 지남`
 }
 
 // ─── 어노테이션 세그먼트 빌더 ─────────────────────────────────────────────────
@@ -728,18 +755,12 @@ function RenameTagModal({ tag, onClose, onRename }) {
 
 // ─── 서류 추가 모달 ──────────────────────────────────────────────────────────
 function AddAppModal({ onClose, onAdd }) {
-  const [company,  setCompany]  = useState('')
-  const [deadline, setDeadline] = useState('')
+  const [company,     setCompany]     = useState('')
+  const [deadlineIso, setDeadlineIso] = useState('')
 
   const handleAdd = () => {
     if (!company.trim()) return
-    onAdd({
-      id: Date.now(),
-      company: company.trim(),
-      deadline: deadline ? `~ ${deadline}` : '마감일 미정',
-      remaining: '',
-      originalStatus: '작성중',
-    })
+    onAdd({ id: Date.now(), company: company.trim(), deadlineIso, originalStatus: '작성중' })
   }
 
   return (
@@ -751,14 +772,13 @@ function AddAppModal({ onClose, onAdd }) {
           <input className="add-cat-input" value={company}
             onChange={e => setCompany(e.target.value)} autoFocus
             placeholder="예) 삼성전자 [마케팅기획]"
-            onKeyDown={e => { if (e.key==='Enter') document.getElementById('deadline-input')?.focus() }} />
+            onKeyDown={e => { if (e.key==='Enter') document.getElementById('deadline-dt')?.focus() }} />
         </div>
         <div className="add-cat-field">
-          <span className="add-cat-label">마감일</span>
-          <input id="deadline-input" className="add-cat-input" value={deadline}
-            onChange={e => setDeadline(e.target.value)}
-            placeholder="예) 2026. 06. 30 18:00"
-            onKeyDown={e => { if (e.key==='Enter' && company.trim()) handleAdd() }} />
+          <span className="add-cat-label">마감 일시</span>
+          <input id="deadline-dt" className="add-cat-input add-cat-input--datetime"
+            type="datetime-local" value={deadlineIso}
+            onChange={e => setDeadlineIso(e.target.value)} />
         </div>
         <div className="add-cat-actions">
           <button className="add-cat-cancel tap" onClick={onClose}>취소</button>
@@ -1311,10 +1331,23 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
           />
         ) : (
           <div className="doc-question-text-row">
-            <div className="doc-question-text">{question.text}</div>
+            <div className={`doc-question-text${!question.text ? ' doc-question-text--empty' : ''}`}>
+              {question.text || '문항 내용을 입력하세요'}
+            </div>
             <button className="doc-question-edit-btn tap" onClick={() => { setEditingQIdx(currentQ); setEditingQText(question.text) }}>
               <PencilIcon />
             </button>
+            {questions.length > 1 && (
+              <button className="doc-question-del-btn tap" onClick={() => {
+                const newQs = questions.filter((_, i) => i !== currentQ)
+                const newAnswers = answers.filter((_, i) => i !== currentQ)
+                onQuestionsChange(newQs)
+                onAnswersChange(newAnswers)
+                setCurrentQ(q => Math.min(q, newQs.length - 1))
+              }}>
+                <TrashIcon size={14} color="#cccccc" />
+              </button>
+            )}
           </div>
         )}
         <div className="doc-progress-row">
@@ -1637,15 +1670,21 @@ export default function App() {
                         <div className="app-card__left">
                           <div className="app-card__company">{card.company}</div>
                           <div className="app-card__meta">
-                            <span className="app-card__deadline">{card.deadline}</span>
-                            <span className="app-card__remaining">{card.remaining}</span>
+                            <span className="app-card__deadline">{formatDeadline(card.deadlineIso)}</span>
+                            <span className="app-card__remaining">{calcRemaining(card.deadlineIso)}</span>
                           </div>
-                          <div className="app-card__doc-progress">
-                            <div className="app-card__doc-bar">
-                              <div className="app-card__doc-fill" style={{ width:`${(done/MOCK_QUESTIONS.length)*100}%` }} />
-                            </div>
-                            <span className="app-card__doc-count">{done}/{MOCK_QUESTIONS.length} 문항</span>
-                          </div>
+                          {(() => {
+                            const qs = (appQuestions[card.id] || MOCK_QUESTIONS)
+                            const total = qs.length
+                            return (
+                              <div className="app-card__doc-progress">
+                                <div className="app-card__doc-bar">
+                                  <div className="app-card__doc-fill" style={{ width:`${(done/total)*100}%` }} />
+                                </div>
+                                <span className="app-card__doc-count">{done}/{total} 문항</span>
+                              </div>
+                            )
+                          })()}
                         </div>
                         <div className="app-card__divider" />
                         <div className="app-card__status-wrap" onClick={stop}>
@@ -1759,7 +1798,11 @@ export default function App() {
       {showAddApp && (
         <AddAppModal
           onClose={() => setShowAddApp(false)}
-          onAdd={newApp => { setUserApps(p => [...p, newApp]); setShowAddApp(false) }}
+          onAdd={newApp => {
+            setUserApps(p => [...p, newApp])
+            setAppQuestions(prev => ({ ...prev, [newApp.id]: [{ text: '', maxChars: 1000 }] }))
+            setShowAddApp(false)
+          }}
         />
       )}
 
