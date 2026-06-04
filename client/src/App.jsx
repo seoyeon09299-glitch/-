@@ -526,7 +526,7 @@ function SearchSheet({ appAnswers }) {
                     <span className="search-result-qnum">Q{r.qIdx + 1}</span>
                   </div>
                   <div className="search-result-snippet">{highlightSnippet(r.snippet, query.trim())}</div>
-                  <button className="search-copy-btn tap" onClick={() => setPreviewData(r)}>미리보기</button>
+                  <button className="search-copy-btn tap" onClick={() => setPreviewData(r)}>전체보기</button>
                 </div>
               ))}
             </div>
@@ -660,7 +660,6 @@ function CategoryModal({ currentCategory, onSelect, onClose, onAddCategory, onDe
   const handleSelect = (cat) => {
     if (editMode) return
     setSelected(cat)
-    setTimeout(() => onSelect(cat), 150)
   }
 
   const handleDelete = (cat, e) => {
@@ -702,6 +701,11 @@ function CategoryModal({ currentCategory, onSelect, onClose, onAddCategory, onDe
             <button className="modal-add-btn tap" onClick={e => { e.stopPropagation(); setShowAddCat(true) }}>
               <AddIcon /> 카테고리 추가
             </button>
+          )}
+          {!editMode && (
+            <div className="modal-save-row">
+              <button className="modal-save-btn tap" onClick={() => onSelect(selected)}>저장</button>
+            </div>
           )}
         </div>
       </div>
@@ -1175,13 +1179,16 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
     setEditingQIdx(null)
   }
 
-  // 문항 전환 시 히스토리 초기화
+  // 문항 전환 시 히스토리 + 라이브러리 선택 초기화
   useEffect(() => {
     setQHistory([answers[currentQ] || ''])
     setQHistIdx(0)
     setSelectedSentences([])
     setAnnotations([])
     setFormatting([])
+    setInsertedIds(new Set())
+    setProposalBlocks([])
+    setShowLibSheet(false)
   }, [currentQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pushHistory = (val) => {
@@ -1379,11 +1386,15 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
       </div>
 
       <div className="doc-nav-bar">
-        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>‹</button>
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.max(0, q-1))} disabled={currentQ===0}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
         {questions.map((_,i) => (
           <button key={i} className={`doc-dot tap ${i===currentQ?'doc-dot--active':''}`} onClick={() => setCurrentQ(i)} />
         ))}
-        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(questions.length-1, q+1))} disabled={currentQ===questions.length-1}>›</button>
+        <button className="doc-arrow tap" onClick={() => setCurrentQ(q => Math.min(questions.length-1, q+1))} disabled={currentQ===questions.length-1}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
         <button className="doc-nav-add tap" onClick={() => {
           const newQ = { text: '새 문항', maxChars: 1000 }
           const newQs = [...questions, newQ]

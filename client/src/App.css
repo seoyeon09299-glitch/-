@@ -791,6 +791,23 @@ button {
 .modal-add-btn:hover   { background: #ffe8d6; }
 .modal-add-btn:active  { transform: scale(0.96); transition: transform 0s; }
 
+.modal-save-row {
+  margin-top: 8px;
+}
+.modal-save-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.modal-save-btn:hover  { opacity: 0.9; }
+.modal-save-btn:active { transform: scale(0.97); transition: transform 0s; }
+
 /* ─── DocDetailView ─────────────────────────────────────────────────────── */
 .doc-detail-app {
   padding-bottom: 0 !important;
@@ -955,14 +972,21 @@ button {
 }
 
 .doc-arrow {
-  font-size: 18px;
-  color: var(--text-gray);
-  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-section);
+  color: var(--text-mid);
+  font-size: 22px;
   line-height: 1;
-  transition: color 0.15s;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
-.doc-arrow:hover  { color: var(--text-dark); }
-.doc-arrow:disabled { opacity: 0.25; pointer-events: none; }
+.doc-arrow:hover  { background: #ebebeb; color: var(--text-dark); }
+.doc-arrow:disabled { opacity: 0.3; pointer-events: none; }
 
 .doc-nav-bar {
   display: flex;
