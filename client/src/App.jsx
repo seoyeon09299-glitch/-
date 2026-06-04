@@ -204,9 +204,9 @@ function buildRichOverlay(text, annotations) {
     const bg = annHit ? { backgroundColor: annHit.color + '55' } : {}
     els.push(
       <span key={key++}>
-        <span style={{ color: 'transparent' }}>{bold ? '**' : '*'}</span>
+        <span style={{ fontSize: 0 }}>{bold ? '**' : '*'}</span>
         {bold ? <strong style={bg}>{content}</strong> : <em style={bg}>{content}</em>}
-        <span style={{ color: 'transparent' }}>{bold ? '**' : '*'}</span>
+        <span style={{ fontSize: 0 }}>{bold ? '**' : '*'}</span>
       </span>
     )
     last = m.index + m[0].length
@@ -899,9 +899,13 @@ function EditView({ item, onClose, onGoToDocs, onSave, onAddCategory, onDeleteCa
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
   const replaceSelection = (replacement) => {
     if (!selectionInfo) return
-    const { start, end } = selectionInfo
-    const nc = content.slice(0, start) + replacement + content.slice(end)
+    const { start } = selectionInfo
+    const nc = content.slice(0, start) + replacement + content.slice(selectionInfo.end)
     setContent(nc); pushHistory(nc); setSelectionInfo(null)
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current
+      if (ta) ta.setSelectionRange(start + replacement.length, start + replacement.length)
+    })
   }
   const handleSelectionAction = (action, value) => {
     switch (action) {
@@ -1232,10 +1236,14 @@ function DocDetailView({ app, onBack, onGoToLibrary, libraryItems, answers, onAn
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
   const replaceSelection = (replacement) => {
     if (!selectionInfo) return
-    const { start, end } = selectionInfo
-    const newAns = ans.slice(0, start) + replacement + ans.slice(end)
+    const { start } = selectionInfo
+    const newAns = ans.slice(0, start) + replacement + ans.slice(selectionInfo.end)
     const next = [...answers]; next[currentQ] = newAns
     onAnswersChange(next); pushHistory(newAns); setSelectionInfo(null)
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current
+      if (ta) ta.setSelectionRange(start + replacement.length, start + replacement.length)
+    })
   }
   const handleSelectionAction = (action, value) => {
     switch (action) {
