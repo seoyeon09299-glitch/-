@@ -825,6 +825,7 @@ button {
   align-items: flex-start;
   gap: 4px;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 .doc-question-text {
@@ -834,10 +835,8 @@ button {
   line-height: 1.55;
   letter-spacing: -0.2px;
   flex: 1;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  overflow-y: auto;
+  min-height: 0;
 }
 .doc-question-edit-btn {
   flex-shrink: 0;
